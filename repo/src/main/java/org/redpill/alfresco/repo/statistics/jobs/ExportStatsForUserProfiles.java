@@ -7,8 +7,10 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.alfresco.model.ContentModel;
 import org.alfresco.repo.model.Repository;
@@ -29,9 +31,13 @@ import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.service.cmr.search.ResultSet;
 import org.alfresco.service.cmr.search.SearchParameters;
 import org.alfresco.service.cmr.search.SearchService;
+import org.alfresco.service.cmr.security.AuthorityService;
+import org.alfresco.service.cmr.security.AuthorityType;
+import org.alfresco.service.cmr.security.PersonService;
 import org.alfresco.service.cmr.site.SiteService;
 import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.redpill.alfresco.repo.statistics.service.ReportSiteUsage;
@@ -54,8 +60,19 @@ public class ExportStatsForUserProfiles extends ClusteredExecuter{
   protected NamespaceService namespaceService;
   protected ContentService contentService;
   protected SiteService siteService;
+  protected AuthorityService authorityService;
+  
+  protected String userGroups;
 
-  public final String XPATH_DATA_DICTIONARY = "/app:company_home/app:dictionary";
+  public String getUserGroups() {
+	return userGroups;
+}
+
+public void setUserGroups(String userGroups) {
+	this.userGroups = userGroups;
+}
+
+public final String XPATH_DATA_DICTIONARY = "/app:company_home/app:dictionary";
   public final String FOLDER_NAME_REDPILL_LINPRO = "Redpill-Linpro";
   public final String FOLDER_NAME_STATISTICS = "Statistics";
   public final String FOLDER_NAME_USER_PROFILE_STATISTICS = "UserProfileStatistics";
@@ -102,6 +119,10 @@ public class ExportStatsForUserProfiles extends ClusteredExecuter{
   public void setContentService(ContentService contentService) {
     this.contentService = contentService;
   }
+  
+  public void setAuthorityService(AuthorityService authorityService) {
+	this.authorityService = authorityService;
+}
 
   @Override
   protected String getJobName() {
@@ -130,10 +151,17 @@ public class ExportStatsForUserProfiles extends ClusteredExecuter{
             // get all users
             List<NodeRef> users = getUsersStartingFrom();
 
+    		String allGroups = getUserGroups();
+    		List<String> groupList =null;
+				
+    		if (allGroups != null && StringUtils.isNotEmpty(allGroups)) {
+						groupList = new ArrayList<String>(Arrays.asList(allGroups.split(",")));
+					}
+    		
             // query user
             for (NodeRef user:users) {
               // write user info in string
-              String userInfo = getUserStats(user, userStats);
+              String userInfo = getUserStats(user, userStats,groupList);
 
               // write user info in a line in csv, end with next line
               sb.append(userInfo);
@@ -151,7 +179,7 @@ public class ExportStatsForUserProfiles extends ClusteredExecuter{
                 N_OF_FILLED_ABOUT + ";"+
                 N_OF_SELECTED_LOCAL_INTRANET + ";"+
                 N_OF_FILLED_SKILLS+ "\r\n\r\n"+
-                "Username;Updated;Pictures;Nicknames;Job Titles;Office Phones;Mobile Phones;Locations;Company;Descriptions;Local Intranet;Skills" + "\r\n");
+                "Username;Updated;Pictures;Nicknames;Job Titles;Office Phones;Mobile Phones;Locations;Company;Descriptions;Local Intranet;Skills;Groups" + "\r\n");
             sb.insert(0, stats);
             //print csv
             long time = System.currentTimeMillis();
@@ -335,7 +363,7 @@ public class ExportStatsForUserProfiles extends ClusteredExecuter{
     return null;
   }
 
-  public String getUserStats(NodeRef user, List<UserProfileStats> userStats){
+  public String getUserStats(NodeRef user, List<UserProfileStats> userStats,List<String> groupList){
 
     UserProfileStats ups = new UserProfileStats();
 
@@ -440,6 +468,28 @@ public class ExportStatsForUserProfiles extends ClusteredExecuter{
       ups.setSkills(tags);
     N_OF_FILLED_SKILLS++;
     }
+    
+    sb.append(";");
+	StringBuffer authBuffer = new StringBuffer();
+	String groupActualName = "";
+	Set<String> authorities = authorityService.getContainingAuthoritiesInZone(AuthorityType.GROUP, username,
+			AuthorityService.ZONE_APP_DEFAULT, null, 1000);
+
+		for (String authority : authorities) {
+			if (StringUtils.isNotBlank(authority)) {
+				groupActualName = authority.replaceAll("GROUP_", "");
+                
+				if (userGroups.contains(groupActualName)) {
+					if(StringUtils.isNotEmpty(authBuffer)){
+						authBuffer.append(",");
+					}
+					authBuffer.append(groupActualName);
+					
+				}
+			}
+		}
+	sb.append(authBuffer.toString());
+    
     /* 
      * 
      * How many profiles exist
@@ -474,6 +524,7 @@ public class ExportStatsForUserProfiles extends ClusteredExecuter{
     Assert.notNull(namespaceService);
     Assert.notNull(searchService);
     Assert.notNull(siteService);
+    Assert.notNull(authorityService);
     LOG.info("Initialized " + GenerateSiteStatistics.class.getName());
   }
 }

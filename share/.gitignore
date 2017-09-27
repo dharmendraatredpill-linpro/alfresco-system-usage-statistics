@@ -1,0 +1,10 @@
+.project
+.settings
+target
+.springBeans
+.classpath
+${tomcat.home}
+alfresco.log
+rebel.xml
+alf_data_dev
+teamroom-repo/${tomcat.repo.home}/

@@ -147,6 +147,8 @@
     <property name="namespaceService" ref="NamespaceService" />
     <property name="searchService" ref="SearchService" />
     <property name="siteService" ref="SiteService" />
+     <property name="authorityService" ref="AuthorityService" />
+     <property name="userGroups" value="${rl.statistics.jobs.userStatistics.groups}" />
   </bean>
 
   <bean id="rl.exportStatsForUserProfilesJobDetail" class="org.springframework.scheduling.quartz.JobDetailBean">
