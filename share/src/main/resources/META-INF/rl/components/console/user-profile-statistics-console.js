@@ -300,9 +300,10 @@ if (typeof RL == "undefined" || !RL) {
           var year = path.substring(path.length -4);
           var fn = filename.replace("json", "csv");
           
-          var serverUrl = config.scoped["Extension"]["admin-repo-url"].getChild("path").value;
+          var repoAdmnURL=Alfresco.constants.URL_CONTEXT.replace("share", "alfresco");;
           
-          var go = "<a class='userprofiledownloadstats' title='Download CSV' " + "href='"+serverUrl+"/s/com/scania/alfresco/teamroom/repo/getCSVcontentStats.csv?content="+fn+"|"+year+"'>csv link</a>";
+          
+          var go = "<a class='userprofiledownloadstats' title='Download CSV' " + "href='"+repoAdmnURL+"s/com/scania/alfresco/teamroom/repo/getCSVcontentStats.csv?content="+fn+"|"+year+"'>csv link</a>";
           //"+Alfresco.constants.URL_SERVICECONTEXT+"
           cell.innerHTML += go;
         };
