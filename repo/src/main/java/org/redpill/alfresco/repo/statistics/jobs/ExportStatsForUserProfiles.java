@@ -7,7 +7,6 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,7 +32,6 @@ import org.alfresco.service.cmr.search.SearchParameters;
 import org.alfresco.service.cmr.search.SearchService;
 import org.alfresco.service.cmr.security.AuthorityService;
 import org.alfresco.service.cmr.security.AuthorityType;
-import org.alfresco.service.cmr.security.PersonService;
 import org.alfresco.service.cmr.site.SiteService;
 import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
@@ -166,6 +164,8 @@ public final String XPATH_DATA_DICTIONARY = "/app:company_home/app:dictionary";
               // write user info in a line in csv, end with next line
               sb.append(userInfo);
             }
+            
+           
             String stats = ("Total Number Of Users" + "\r\n"+
             + N_OF_USERS + "\r\n\r\n"+ "Summary" + "\r\n" +
                 ";"+N_OF_UPDATED_PROFILES + ";"
@@ -179,7 +179,7 @@ public final String XPATH_DATA_DICTIONARY = "/app:company_home/app:dictionary";
                 N_OF_FILLED_ABOUT + ";"+
                 N_OF_SELECTED_LOCAL_INTRANET + ";"+
                 N_OF_FILLED_SKILLS+ "\r\n\r\n"+
-                "Username;Updated;Pictures;Nicknames;Job Titles;Office Phones;Mobile Phones;Locations;Company;Descriptions;Local Intranet;Skills;Groups" + "\r\n");
+                "Username;Updated;Pictures;Nicknames;Job Titles;Office Phones;Mobile Phones;Locations;Company;Descriptions;Local Intranet;Skills;Groups\r\n");
             sb.insert(0, stats);
             //print csv
             long time = System.currentTimeMillis();
@@ -306,27 +306,25 @@ public final String XPATH_DATA_DICTIONARY = "/app:company_home/app:dictionary";
     return value;
   }
 
-  private String getAttributeArrayValue(Map<QName, Serializable> properties, QName attributeName) {
+	private String getAttributeArrayValue(Map<QName, Serializable> properties, QName attributeName) {
 
-    List<String> value = null;
+		List<String> attributeValues = (ArrayList<String>) properties.get(attributeName);
+		StringBuffer tagsBuffer = new StringBuffer();
 
-    Serializable attributeValue = properties.get(attributeName);
+		if (attributeValues != null && attributeValues.size() > 0) {
+			for (String attributeValue : attributeValues) {
 
-    if (attributeValue != null && !"".equals(attributeValue)) {
-      // Remove [] from string.
-      String stringValue = attributeValue.toString().replace("[", "");
-      stringValue = stringValue.replace("]", "");
-      value = Arrays.asList(stringValue.split(", "));
-      if (value.size() == 1 && "".equals(value.get(0))) {
-        return "[]";
-      }
-    }
-    if (value==null){
-      return "[]";
-    }
+				if (StringUtils.isNotEmpty(tagsBuffer)) {
+					tagsBuffer.append(",");
+				}
+				tagsBuffer.append(attributeValue);
+			}
 
-    return value.toString();
-  }
+			return tagsBuffer.toString();
+		}
+
+		return "";
+	}
 
   private String getAttributeDateValue(Map<QName, Serializable> properties, QName attributeName, String dateFormat) {
     Date attributeValue = (Date) properties.get(attributeName);
@@ -463,33 +461,18 @@ public final String XPATH_DATA_DICTIONARY = "/app:company_home/app:dictionary";
 //    }
     sb.append(";");
     String tags = getAttributeArrayValue(properties, QName.createQName(URI, "tags"));
-    if (tags != null && tags.length()>0 && !"[]".equals(tags)){
+    if (StringUtils.isNotEmpty(tags)){
       sb.append(tags);
       ups.setSkills(tags);
     N_OF_FILLED_SKILLS++;
     }
     
     sb.append(";");
-	StringBuffer authBuffer = new StringBuffer();
-	String groupActualName = "";
-	Set<String> authorities = authorityService.getContainingAuthoritiesInZone(AuthorityType.GROUP, username,
-			AuthorityService.ZONE_APP_DEFAULT, null, 1000);
 
-		for (String authority : authorities) {
-			if (StringUtils.isNotBlank(authority)) {
-				groupActualName = authority.replaceAll("GROUP_", "");
-                
-				if (userGroups.contains(groupActualName)) {
-					if(StringUtils.isNotEmpty(authBuffer)){
-						authBuffer.append(",");
-					}
-					authBuffer.append(groupActualName);
-					
-				}
-			}
-		}
-	sb.append(authBuffer.toString());
-    
+    // getting user's groups
+    sb.append(getActualGroups(username,groupList));
+	
+	
     /* 
      * 
      * How many profiles exist
@@ -513,8 +496,40 @@ public final String XPATH_DATA_DICTIONARY = "/app:company_home/app:dictionary";
     userStats.add(ups);
     return sb.toString();
   }
+  
+  /****
+   * 
+   * Return user's groups based on group list defined in alfresco global properties file
+   * 
+   * @param username
+   * @param groupList
+   * @return
+   */
 
-  @Override
+	private String getActualGroups(String username, List<String> groupList) {
+		Set<String> authorities = authorityService.getContainingAuthoritiesInZone(AuthorityType.GROUP, username,
+				AuthorityService.ZONE_APP_DEFAULT, null, 1000);
+
+		StringBuffer groupBuffer = new StringBuffer();
+		for (String authority : authorities) {
+			if (StringUtils.isNotBlank(authority)) {
+
+				String groupStr = authority.replaceAll("GROUP_", "");
+
+				if (groupList.contains(groupStr)) {
+
+					if (StringUtils.isNotEmpty(groupBuffer)) {
+						groupBuffer.append(",");
+					}
+					groupBuffer.append(groupStr);
+				}
+			}
+		}
+
+		return groupBuffer.toString();
+	}
+
+@Override
   public void afterPropertiesSet() throws Exception {
     super.afterPropertiesSet();
     Assert.notNull(repository);
