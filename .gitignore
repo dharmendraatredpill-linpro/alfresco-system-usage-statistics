@@ -1,0 +1,10 @@
+.project
+.settings
+target
+.springBeans
+.classpath
+${tomcat.home}
+alfresco.log
+rebel.xml
+alf_data_dev
+alfresco-system-usage-statistics/${tomcat.repo.home}/
